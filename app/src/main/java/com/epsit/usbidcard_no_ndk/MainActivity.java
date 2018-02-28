@@ -14,11 +14,13 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Toast;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -36,67 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     UsbManager usbManager;
     private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
 
-    private final BroadcastReceiver mUsbPermissionActionReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (ACTION_USB_PERMISSION.equals(action)) {
-                synchronized (this) {
-                    UsbDevice usbDevice = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        //user choose YES for your previously popup window asking for grant perssion for this usb device
-                        if(null != usbDevice){
-                            afterGetUsbPermission(usbDevice);
-                        }
-                    }
-                    else {
-                        //user choose NO for your previously popup window asking for grant perssion for this usb device
-                        Toast.makeText(context, String.valueOf("Permission denied for device" + usbDevice), Toast.LENGTH_LONG).show();
-                    }
-                }
-            }
-        }
-    };
 
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        findViewById(R.id.test).setOnClickListener(this);
-        usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
-
-        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-        registerReceiver(mUsbPermissionActionReceiver, filter);
-
-        PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-        //here do emulation to ask all connected usb device for permission
-        for (final UsbDevice usbDevice : usbManager.getDeviceList().values()) {
-            if(usbManager.hasPermission(usbDevice)){
-                afterGetUsbPermission(usbDevice);
-            }else{
-                usbManager.requestPermission(usbDevice, mPermissionIntent);
-            }
-        }
-        readWrite();
-    }
-    public void initDevice(){
-        HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
-        Log.e(TAG, "get device list  = " + deviceList.size());
-        Toast.makeText(this,
-                "get device list  = " + deviceList.size(), Toast.LENGTH_SHORT).show();
-        Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
-        while (deviceIterator.hasNext()) {
-            UsbDevice device = deviceIterator.next();
-            Log.e(TAG, "device name = " + device.getDeviceName());
-            usbDevice = device;
-            break;
-        }
-
-        if(deviceList.size()>0 && usbDevice!=null){
-            readWrite();
-        }
-
-    }
     String nations[] = { "解码错",		// 00
             "汉",			// 01
             "蒙古",			// 02
@@ -166,64 +108,103 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     int count ;
     @Override
     public void onClick(View v) {
-        PendingIntent mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-        //here do emulation to ask all connected usb device for permission
-        for (final UsbDevice usbDevice : usbManager.getDeviceList().values()) {
-            if(usbManager.hasPermission(usbDevice)){
-                afterGetUsbPermission(usbDevice);
+        if(threadStop){//线程停了
+            Log.e(TAG,"------0");
+            if(connection!=null){
+                count = 0;
+                threadStop = false;
+                Log.e(TAG,"----1");
+                new Thread(){
+                    @Override
+                    public void run() {
+                        super.run();
+                        while(!threadStop){
+                            threadRead();
+                        }
+                    }
+                }.start();
             }else{
-                usbManager.requestPermission(usbDevice, mPermissionIntent);
+                readWrite();
+                count = 0;
+                threadStop = false;
+                Log.e(TAG,"----2");
+                new Thread(){
+                    @Override
+                    public void run() {
+                        super.run();
+                        while(!threadStop){
+                            threadRead();
+                        }
+                    }
+                }.start();
             }
+        }else{
+            Log.e(TAG,"线程没停止");
+            count=0;
         }
     }
-    Thread thread;
 
     /**
      * 获取usb权限之后调用这个方法
      */
     public void readWrite(){
-        UsbInterface usbInterface = usbDevice.getInterface(0);
-        //USBEndpoint为读写数据所需的节点
-        inEndpoint = usbInterface.getEndpoint(0);  //读数据节点
-        outEndpoint = usbInterface.getEndpoint(1); //写数据节点
-        connection = usbManager.openDevice(usbDevice);
-        connection.claimInterface(usbInterface, true);
-        if(thread==null){
-            thread = new ReadThread();
-            thread.start();
+        if(usbDevice!=null){
+            UsbInterface usbInterface = usbDevice.getInterface(0);
+            //USBEndpoint为读写数据所需的节点
+            inEndpoint = usbInterface.getEndpoint(0);  //读数据节点
+            outEndpoint = usbInterface.getEndpoint(1); //写数据节点
+            connection = usbManager.openDevice(usbDevice);
+            connection.claimInterface(usbInterface, true);
         }
-
-        //0复位
-        /*connection.bulkTransfer(outEndpoint, cmd_SAM, cmd_SAM.length, 3000);
-        samResult= new byte[15];
-        ret = connection.bulkTransfer(inEndpoint, samResult, samResult.length, 3000);
-        Log.e(TAG,"samResult="+DataUtils.bytesToHexString(samResult));*/
-
-        /**
-         * 身份证信息(文字+照片)结构：
-         AA AA AA 96 69 05 08 00 00 90 01 00 04 00 +（ 256 字节文字信息 ） +（ 1024 字节
-         照片信息） +（ 1 字节 CRC）
-
-         身份证信息(文字+照片+指纹)结构：
-         AA AA AA 96 69 09 0A 00 00 90 01 00 04 00 04 00 +（ 256 字节文字信息） +
-         （ 1024 字节图片信息） +（ 1024 或 512 或 0 字节指纹信息） +1 字节校验位 指
-         纹数据的具体大小由第十五和第十六字节判断 (04 00)=4*16*16=1024
-         (02 00)=2*16*16=512
-         */
     }
 
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        findViewById(R.id.test).setOnClickListener(this);
+        usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+
+        usbDevice = getIntent().getParcelableExtra("device");
+        if(usbDevice!=null){
+            readWrite();
+            new Thread(){
+                @Override
+                public void run() {
+                    super.run();
+                    while(!threadStop){
+                        threadRead();
+                    }
+                }
+            }.start();
+        }
+    }
+    public void initDevice(){
+        HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
+        Log.e(TAG, "get device list  = " + deviceList.size());
+        Toast.makeText(this,
+                "get device list  = " + deviceList.size(), Toast.LENGTH_SHORT).show();
+        Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
+        while (deviceIterator.hasNext()) {
+            UsbDevice device = deviceIterator.next();
+            Log.e(TAG, "device name = " + device.getDeviceName());
+            usbDevice = device;
+            break;
+        }
+
+        if(deviceList.size()>0 && usbDevice!=null){
+            readWrite();
+        }
+
+    }
     /**
      * 线程中发送寻卡 选卡 读卡的命令
      */
     public void threadRead(){
         count++;
-        /*//0复位
-        connection.bulkTransfer(outEndpoint, cmd_SAM, cmd_SAM.length, 3000);
-        byte[]samResult= new byte[15];
-        int ret = connection.bulkTransfer(inEndpoint, samResult, samResult.length, 3000);
-        Log.e(TAG,"samResult="+DataUtils.bytesToHexString(samResult));*/
-
+        Log.e(TAG,"count----"+count);
         //1、寻卡，发送命令
+        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
         int out = connection.bulkTransfer(outEndpoint, cmd_find, cmd_find.length, 3000);
         byte[]findResult= new byte[15];
         int ret = connection.bulkTransfer(inEndpoint, findResult, findResult.length, 3000);
@@ -232,13 +213,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Log.e(TAG,"findResult[7]="+DataUtils.bytesToHexString(new byte[]{findResult[7]}));
         Log.e(TAG,"findResult[8]="+DataUtils.bytesToHexString(new byte[]{findResult[8]}));
         Log.e(TAG,"findResult[9]="+DataUtils.bytesToHexString(new byte[]{findResult[9]}));
-
+        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
         if (findResult[7] == 0x00 && findResult[8] == 0x00 && findResult[9] == (byte)0x9f) {  //寻卡命令执行成功了 findResult[9]=0x80表示寻卡失败
             Log.e(TAG,"寻卡命令执行成功了");
         }else{
             Log.e(TAG,"寻卡命令执行失败");
         }
-
+        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
         byte[]selectResult = new byte[19];
         //2、选卡,发送选卡命令
         out = connection.bulkTransfer(outEndpoint, cmd_selt, cmd_selt.length, 3000);
@@ -252,7 +233,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }else{
             Log.e(TAG,"选卡命令执行失败");
         }
-
+        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
         byte[]readResult = new byte[1295];
         //3、读取信息
         out = connection.bulkTransfer(outEndpoint, cmd_read, cmd_read.length, 3000);
@@ -263,11 +244,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Log.e(TAG,"readResult[9]="+DataUtils.bytesToHexString(new byte[]{readResult[9]}));
         if (readResult[7] == 0 && readResult[8] == 0 && readResult[9] == (byte)0x90) { //读卡信息执行成功了，
             Log.e(TAG,"读卡信息执行成功了");
+            threadStop = true;
             shouldStop = true;
             count = 0;
             //byte[] data = DataUtils.hexStringToBytes(readResult);
             String dataStr = DataUtils.bytesToHexString(readResult);
             Log.e(TAG,readResult.length+"");
+            Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
             if(readResult.length>=1295){
                 //1.文字信息处理
                 byte[] idWordbytes = Arrays.copyOfRange(readResult, 14, 270);
@@ -309,7 +292,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } catch (UnsupportedEncodingException e) {
                     e.getMessage();
                 }
-
+                Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
                 //最后复位一下，如果没有这个操作的话，调试的时候，读取成功后，下一次重新run这个项目，可能会异常退出一下，然后又可以读取身份证
                 connection.bulkTransfer(outEndpoint, cmd_SAM, cmd_SAM.length, 3000);
                 byte[] samResult= new byte[15];
@@ -320,65 +303,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Log.e(TAG,"读卡信息执行失败");
         }
         if(count>=30){
+            threadStop = true;
             shouldStop = true;
         }
     }
-    class ReadThread extends Thread{
-        @Override
-        public void run() {
-            super.run();
-            while(!threadStop){
-                while (!shouldStop) {
-                    threadRead(); //一直发命令读取
-                }
-            }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if(keyCode==KeyEvent.KEYCODE_BACK){
+            threadStop = true;
         }
+        return super.onKeyDown(keyCode, event);
     }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(mUsbPermissionActionReceiver);
         threadStop = true;
         if(connection!=null){
             connection.close();
         }
     }
 
-    private void afterGetUsbPermission(UsbDevice usbDevice){
-        //call method to set up device communication
-        /*Toast.makeText(getApplicationContext(), String.valueOf("Got permission for usb device: " + usbDevice), Toast.LENGTH_LONG).show();
-        */
-        Toast.makeText(getApplicationContext(), String.valueOf("Found USB device: VID=" + usbDevice.getVendorId() + " PID=" + usbDevice.getProductId()), Toast.LENGTH_LONG).show();
-
-        doYourOpenUsbDevice(usbDevice);
-    }
-
-    private void doYourOpenUsbDevice(UsbDevice device){
-        usbDevice = device;
-        shouldStop = false;
-        count=0;
-        //now follow line will NOT show: User has not given permission to device UsbDevice
-        //UsbDeviceConnection connection = usbManager.openDevice(usbDevice);
-        Log.e(TAG,"已经有权限了，要做自己的事情了--》shouldStop="+shouldStop);
-
-        readWrite();
-
-        //add your operation code here
-    }
-    public void readByThread(){
-        if(thread==null){
-            new ReadThread().start();
-        }
-        /*if(connection==null){
-            Log.e(TAG,"connection==null");
-        }else {
-            if (shouldStop) { //
-                shouldStop = false;
-                count = 0;
-            }
-        }*/
-
-    }
     public static byte[] hex2byte(String hex) {
         int len = (hex.length() / 2);
         byte[] result = new byte[len];
