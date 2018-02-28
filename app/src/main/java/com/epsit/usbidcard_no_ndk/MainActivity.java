@@ -243,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //2、选卡,发送选卡命令
         out = connection.bulkTransfer(outEndpoint, cmd_selt, cmd_selt.length, 3000);
         ret = connection.bulkTransfer(inEndpoint, selectResult, selectResult.length, 3000);
-       // Log.e(TAG,"selectResult="+DataUtils.bytesToHexString(selectResult));
+        Log.e(TAG,"selectResult="+DataUtils.bytesToHexString(selectResult));
         Log.e(TAG,"selectResult[7]="+DataUtils.bytesToHexString(new byte[]{selectResult[7]}));
         Log.e(TAG,"selectResult[8]="+DataUtils.bytesToHexString(new byte[]{selectResult[8]}));
         Log.e(TAG,"selectResult[9]="+DataUtils.bytesToHexString(new byte[]{selectResult[9]}));
@@ -356,6 +356,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void doYourOpenUsbDevice(UsbDevice device){
         usbDevice = device;
         shouldStop = false;
+        count=0;
         //now follow line will NOT show: User has not given permission to device UsbDevice
         //UsbDeviceConnection connection = usbManager.openDevice(usbDevice);
         Log.e(TAG,"已经有权限了，要做自己的事情了--》shouldStop="+shouldStop);
