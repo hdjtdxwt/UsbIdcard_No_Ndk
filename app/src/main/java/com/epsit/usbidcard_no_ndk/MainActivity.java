@@ -200,109 +200,116 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /**
      * 线程中发送寻卡 选卡 读卡的命令
      */
-    public void threadRead(){
+    public void threadRead() {
         count++;
-        Log.e(TAG,"count----"+count);
+        Log.e(TAG, "count----" + count);
         //1、寻卡，发送命令
-        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
+        Log.e(TAG, "-----------date=>" + new Date().toLocaleString());
         int out = connection.bulkTransfer(outEndpoint, cmd_find, cmd_find.length, 3000);
-        byte[]findResult= new byte[15];
+        byte[] findResult = new byte[15];
         int ret = connection.bulkTransfer(inEndpoint, findResult, findResult.length, 3000);
-        Log.e("ret", "ret:"+ret);
-        Log.e(TAG,"findResult="+DataUtils.bytesToHexString(findResult));
-        Log.e(TAG,"findResult[7]="+DataUtils.bytesToHexString(new byte[]{findResult[7]}));
-        Log.e(TAG,"findResult[8]="+DataUtils.bytesToHexString(new byte[]{findResult[8]}));
-        Log.e(TAG,"findResult[9]="+DataUtils.bytesToHexString(new byte[]{findResult[9]}));
-        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
-        if (findResult[7] == 0x00 && findResult[8] == 0x00 && findResult[9] == (byte)0x9f) {  //寻卡命令执行成功了 findResult[9]=0x80表示寻卡失败
-            Log.e(TAG,"寻卡命令执行成功了");
-        }else{
-            Log.e(TAG,"寻卡命令执行失败");
+        Log.e("ret", "ret:" + ret);
+        Log.e(TAG, "findResult=" + DataUtils.bytesToHexString(findResult));
+        Log.e(TAG, "findResult[7]=" + DataUtils.bytesToHexString(new byte[]{findResult[7]}));
+        Log.e(TAG, "findResult[8]=" + DataUtils.bytesToHexString(new byte[]{findResult[8]}));
+        Log.e(TAG, "findResult[9]=" + DataUtils.bytesToHexString(new byte[]{findResult[9]}));
+        Log.e(TAG, "-----------date=>" + new Date().toLocaleString());
+        if (findResult[7] == 0x00 && findResult[8] == 0x00 && findResult[9] == (byte) 0x9f) {  //寻卡命令执行成功了 findResult[9]=0x80表示寻卡失败
+            Log.e(TAG, "寻卡命令执行成功了");
+        } else {
+            Log.e(TAG, "寻卡命令执行失败");
         }
-        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
-        byte[]selectResult = new byte[19];
+        Log.e(TAG, "-----------date=>" + new Date().toLocaleString());
+        byte[] selectResult = new byte[19];
         //2、选卡,发送选卡命令
         out = connection.bulkTransfer(outEndpoint, cmd_selt, cmd_selt.length, 3000);
         ret = connection.bulkTransfer(inEndpoint, selectResult, selectResult.length, 3000);
-        Log.e(TAG,"selectResult="+DataUtils.bytesToHexString(selectResult));
-        Log.e(TAG,"selectResult[7]="+DataUtils.bytesToHexString(new byte[]{selectResult[7]}));
-        Log.e(TAG,"selectResult[8]="+DataUtils.bytesToHexString(new byte[]{selectResult[8]}));
-        Log.e(TAG,"selectResult[9]="+DataUtils.bytesToHexString(new byte[]{selectResult[9]}));
-        if (selectResult[7] == 0 && selectResult[8] == 0 && selectResult[9] == (byte)0x90) { //选卡命令成了 selectResult[9]=0x81表示选卡失败
-            Log.e(TAG,"选卡命令成功执行了");
-        }else{
-            Log.e(TAG,"选卡命令执行失败");
-        }
-        Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
-        byte[]readResult = new byte[1295];
-        //3、读取信息
-        out = connection.bulkTransfer(outEndpoint, cmd_read, cmd_read.length, 3000);
-        ret = connection.bulkTransfer(inEndpoint, readResult, readResult.length, 3000);
-        Log.e(TAG,"readResult="+DataUtils.bytesToHexString(readResult));
-        Log.e(TAG,"readResult[7]="+DataUtils.bytesToHexString(new byte[]{readResult[7]}));
-        Log.e(TAG,"readResult[8]="+DataUtils.bytesToHexString(new byte[]{readResult[8]}));
-        Log.e(TAG,"readResult[9]="+DataUtils.bytesToHexString(new byte[]{readResult[9]}));
-        if (readResult[7] == 0 && readResult[8] == 0 && readResult[9] == (byte)0x90) { //读卡信息执行成功了，
-            Log.e(TAG,"读卡信息执行成功了");
-            threadStop = true;
-            shouldStop = true;
-            count = 0;
-            //byte[] data = DataUtils.hexStringToBytes(readResult);
-            String dataStr = DataUtils.bytesToHexString(readResult);
-            Log.e(TAG,readResult.length+"");
-            Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
-            if(readResult.length>=1295){
-                //1.文字信息处理
-                byte[] idWordbytes = Arrays.copyOfRange(readResult, 14, 270);
-                //2.头像处理
-                String headStr = dataStr.substring(540,2588);
-                //idCard.headImage = hex2byte(headStr);//Arrays.copyOfRange(data,270, 1294);
-                try {
-                    String word_name = new String(Arrays.copyOfRange(idWordbytes,0, 30),"UTF-16LE").trim().trim();
-                    String word_gender = new String(Arrays.copyOfRange(idWordbytes,30, 32),"UTF-16LE").trim();
-                    String word_nation = new String(Arrays.copyOfRange(idWordbytes,32, 36),"UTF-16LE").trim();
-                    String word_birthday = new String(Arrays.copyOfRange(idWordbytes,36, 52),"UTF-16LE").trim();
-                    String word_address = new String(Arrays.copyOfRange(idWordbytes,52, 122),"UTF-16LE").trim();
-                    String word_idCard = new String(Arrays.copyOfRange(idWordbytes,122, 158),"UTF-16LE").trim();
-                    String word_issuingAuthority = new String(Arrays.copyOfRange(idWordbytes,158, 188),"UTF-16LE").trim();
-                    String word_startTime = new String(Arrays.copyOfRange(idWordbytes,188, 204),"UTF-16LE").trim();
-                    String word_startopTime = new String(Arrays.copyOfRange(idWordbytes,204, 220),"UTF-16LE").trim();
-                    //名族的特殊处理
-                    //
-                    Log.e(TAG,"--------------start");
-                    Log.e(TAG,"word_name="+word_name);
-                    Log.e(TAG,"word_gender="+word_gender);
-                    if(!TextUtils.isEmpty(word_nation)){
-                        Log.e(TAG,"word_nation="+word_nation+"   民族："+nations[Integer.parseInt(word_nation)]);
-                    }else{
-                        Log.e(TAG,"word_nation="+word_nation );
-                    }
-
-                    Log.e(TAG,"word_birthday="+word_birthday);
-                    Log.e(TAG,"word_address="+word_address);
-                    Log.e(TAG,"word_idCard="+word_idCard);
-
-                    Log.e(TAG,"word_issuingAuthority="+word_issuingAuthority);
-                    Log.e(TAG,"word_startTime="+word_startTime);
-                    Log.e(TAG,"word_startopTime="+word_startopTime);
-
-                    Log.e(TAG,"--------------end");
-
-                    //原本还有头像wlt文件的解析，需要用到so库，这里就没有去弄了
-                } catch (UnsupportedEncodingException e) {
-                    e.getMessage();
-                }
-                Log.e(TAG,"-----------date=>"+new Date().toLocaleString());
-                //最后复位一下，如果没有这个操作的话，调试的时候，读取成功后，下一次重新run这个项目，可能会异常退出一下，然后又可以读取身份证
-                connection.bulkTransfer(outEndpoint, cmd_SAM, cmd_SAM.length, 3000);
-                byte[] samResult= new byte[15];
-                ret = connection.bulkTransfer(inEndpoint, samResult, samResult.length, 3000);
-                Log.e(TAG,"samResult="+DataUtils.bytesToHexString(samResult));
+       // Log.e(TAG,"selectResult.length="+selectResult.length);
+        if (selectResult.length >= 19) {
+            Log.e(TAG, "selectResult=" + DataUtils.bytesToHexString(selectResult));
+            Log.e(TAG, "selectResult[7]=" + DataUtils.bytesToHexString(new byte[]{selectResult[7]}));
+            Log.e(TAG, "selectResult[8]=" + DataUtils.bytesToHexString(new byte[]{selectResult[8]}));
+            Log.e(TAG, "selectResult[9]=" + DataUtils.bytesToHexString(new byte[]{selectResult[9]}));
+            if (selectResult[7] == 0 && selectResult[8] == 0 && selectResult[9] == (byte) 0x90) { //选卡命令成了 selectResult[9]=0x81表示选卡失败
+                Log.e(TAG, "选卡命令成功执行了");
+            } else {
+                Log.e(TAG, "选卡命令执行失败");
             }
-        }else{
-            Log.e(TAG,"读卡信息执行失败");
+            Log.e(TAG, "-----------date=>" + new Date().toLocaleString());
+            byte[] readResult = new byte[1295];
+            //3、读取信息
+            out = connection.bulkTransfer(outEndpoint, cmd_read, cmd_read.length, 3000);
+            ret = connection.bulkTransfer(inEndpoint, readResult, readResult.length, 3000);
+
+            Log.e(TAG, "readResult[9]=" + DataUtils.bytesToHexString(new byte[]{readResult[9]}));
+            Log.e(TAG,"selectResult.length="+readResult.length);
+            if (readResult != null && readResult.length >= 19) {
+                Log.e(TAG, "readResult=" + DataUtils.bytesToHexString(readResult));
+                Log.e(TAG, "readResult[7]=" + DataUtils.bytesToHexString(new byte[]{readResult[7]}));
+                Log.e(TAG, "readResult[8]=" + DataUtils.bytesToHexString(new byte[]{readResult[8]}));
+                if (readResult[7] == 0 && readResult[8] == 0 && readResult[9] == (byte) 0x90) { //读卡信息执行成功了，
+                    Log.e(TAG, "读卡信息执行成功了");
+                    threadStop = true;
+                    shouldStop = true;
+                    count = 0;
+                    //byte[] data = DataUtils.hexStringToBytes(readResult);
+                    String dataStr = DataUtils.bytesToHexString(readResult);
+                    Log.e(TAG, readResult.length + "");
+                    Log.e(TAG, "-----------date=>" + new Date().toLocaleString());
+                    if (readResult.length >= 1295) {
+                        //1.文字信息处理
+                        byte[] idWordbytes = Arrays.copyOfRange(readResult, 14, 270);
+                        //2.头像处理
+                        String headStr = dataStr.substring(540, 2588);
+                        //idCard.headImage = hex2byte(headStr);//Arrays.copyOfRange(data,270, 1294);
+                        try {
+                            String word_name = new String(Arrays.copyOfRange(idWordbytes, 0, 30), "UTF-16LE").trim().trim();
+                            String word_gender = new String(Arrays.copyOfRange(idWordbytes, 30, 32), "UTF-16LE").trim();
+                            String word_nation = new String(Arrays.copyOfRange(idWordbytes, 32, 36), "UTF-16LE").trim();
+                            String word_birthday = new String(Arrays.copyOfRange(idWordbytes, 36, 52), "UTF-16LE").trim();
+                            String word_address = new String(Arrays.copyOfRange(idWordbytes, 52, 122), "UTF-16LE").trim();
+                            String word_idCard = new String(Arrays.copyOfRange(idWordbytes, 122, 158), "UTF-16LE").trim();
+                            String word_issuingAuthority = new String(Arrays.copyOfRange(idWordbytes, 158, 188), "UTF-16LE").trim();
+                            String word_startTime = new String(Arrays.copyOfRange(idWordbytes, 188, 204), "UTF-16LE").trim();
+                            String word_startopTime = new String(Arrays.copyOfRange(idWordbytes, 204, 220), "UTF-16LE").trim();
+                            //名族的特殊处理
+                            //
+                            Log.e(TAG, "--------------start");
+                            Log.e(TAG, "word_name=" + word_name);
+                            Log.e(TAG, "word_gender=" + word_gender);
+                            if (!TextUtils.isEmpty(word_nation)) {
+                                Log.e(TAG, "word_nation=" + word_nation + "   民族：" + nations[Integer.parseInt(word_nation)]);
+                            } else {
+                                Log.e(TAG, "word_nation=" + word_nation);
+                            }
+
+                            Log.e(TAG, "word_birthday=" + word_birthday);
+                            Log.e(TAG, "word_address=" + word_address);
+                            Log.e(TAG, "word_idCard=" + word_idCard);
+
+                            Log.e(TAG, "word_issuingAuthority=" + word_issuingAuthority);
+                            Log.e(TAG, "word_startTime=" + word_startTime);
+                            Log.e(TAG, "word_startopTime=" + word_startopTime);
+
+                            Log.e(TAG, "--------------end");
+
+                            //原本还有头像wlt文件的解析，需要用到so库，这里就没有去弄了
+                        } catch (UnsupportedEncodingException e) {
+                            e.getMessage();
+                        }
+                        Log.e(TAG, "-----------date=>" + new Date().toLocaleString());
+                        //最后复位一下，如果没有这个操作的话，调试的时候，读取成功后，下一次重新run这个项目，可能会异常退出一下，然后又可以读取身份证
+                        connection.bulkTransfer(outEndpoint, cmd_SAM, cmd_SAM.length, 3000);
+                        byte[] samResult = new byte[15];
+                        ret = connection.bulkTransfer(inEndpoint, samResult, samResult.length, 3000);
+                    }
+                }
+            }
+
+        } else {
+            Log.e(TAG, "读卡信息执行失败");
         }
-        if(count>=30){
+        if (count >= 30) {
             threadStop = true;
             shouldStop = true;
         }

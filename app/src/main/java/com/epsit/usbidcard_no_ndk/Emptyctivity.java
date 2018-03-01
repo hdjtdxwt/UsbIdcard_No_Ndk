@@ -71,7 +71,7 @@ public class Emptyctivity extends AppCompatActivity implements View.OnClickListe
 
     private void afterGetUsbPermission(UsbDevice usbDevice) {
         Log.e("empty","---有权限了");
-        Intent intent = new Intent(this,MainActivity.class);
+        Intent intent = new Intent(this,Main2Activity.class);
         intent.putExtra("device",usbDevice);
         startActivity(intent);
     }
